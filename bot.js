@@ -5,7 +5,8 @@
 // This is the main file for the botNode bot.
 
 // Import Botkit's core features
-const { Botkit } = require('botkit');
+const { Botkit, BotkitConversation} = require('botkit');
+
 const { BotkitCMSHelper } = require('botkit-plugin-cms');
 
 // Import a platform-specific adapter for web.
@@ -62,18 +63,69 @@ controller.ready(() => {
         });
     }
 
-    controller.on('message', async(bot, message) => {
-        bot.reply(message, message.text)
-   });
+    const dinoNames = [
+        'spinosaurus', 't-rex', 'dilophosaurus', 'velociraptor'
+    ]
 
-    controller.hears('minuteur',['message'], async (bot,message) => {
+    function isInTheDocDino(dinoName){
+        dinoName = '' + dinoName + '';
+        return dinoNames.includes(dinoName.toLowerCase());
+    }
 
-        // do something to respond to message
-        await bot.reply(message,'Non');
-      
+    let convo = new BotkitConversation('dino', controller);
+
+    convo.addQuestion('What is your favorite dino ?', async(response, convo, bot) => {
+        const dinoName = response;
+        convo.setVar('dinos', dinoName);
+
+        if(isInTheDocDino(dinoName)){
+            await convo.gotoThread('yes_dino');
+        }
+        else{
+            await convo.gotoThread('no_dino');
+        }
+    }, 'dinoName','default');
+
+    
+    convo.addMessage('Sounds cool !', 'yes_dino');
+    convo.addMessage('I don\'t know him', 'no_dino');
+    
+    convo.addQuestion('Is it a nice dino ?',  [
+
+        {
+            pattern: 'yes',
+            handler: async(response, convo, bot) => {
+                // if user says no, go back to favorite color.
+                await convo.gotoThread('yes');
+            }
+        },
+        {
+            pattern: 'no',
+            handler: async(response, convo, bot) => {
+                // if user says no, go back to favorite color.
+                await convo.gotoThread('nop');
+            }
+        },
+        {
+            default: true,
+            handler: async(response, convo, bot) => {
+                await convo.repeat();
+            }
+        }
+    ], 'nice', 'yes_dino');
+
+    convo.addMessage('Ok i want to be his friend !', 'yes');
+    convo.addMessage('Ah maybe it\'s because he can eat you ...', 'nop');
+    
+    // add to the controller to make it available for later.
+    controller.addDialog(convo);
+    
+    controller.hears(['rrrr','grr','shout'], 'message', async(bot, message) => {
+        await bot.beginDialog('dino');
+    });
       });
 
-});
+
 
 
 
